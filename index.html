@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Canvas POC</title>
+    <script
+      src="https://cdn.socket.io/4.4.1/socket.io.min.js"
+      integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H"
+      crossorigin="anonymous"
+    ></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      .canvas-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      #drawing-area {
+        border: 1px solid black;
+        margin: 1rem 0;
+      }
+
+      .canvas-container__tools {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .tool {
+        cursor: pointer;
+        border: 1px solid black;
+        padding: 0.5rem 1rem;
+        font-size: 1.5rem;
+        margin: 0 0.5rem;
+      }
+      .red{
+        background-color: red;
+      }
+      .blue{
+        background-color: blue;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="canvas-container">
+      <canvas id="drawing-area" height="500" width="500"></canvas>
+      <div class="canvas-container__tools">
+        <div class="tool pencil" onclick="selectPen()">Pencil</div>
+        <div class="tool eraser" onclick="toggleEraser()">Eraser</div>
+        <div class="tool red" onclick="selectColor('red')">Red</div>
+        <div class="tool blue" onclick="selectColor('blue')">Blue</div>
+        <div class="tool rectangle" onclick="selectRectangle()">Rectangle</div>
+        <div class="tool circle" onclick="selectCircle()">Circle</div>
+        <div class="tool brush" onclick="selectBrush()">Brush</div>
+        <div class="tool clear" onclick="clearCanvas()">Clear</div>
+      </div>
+    </div>
+
+    <script>
+      const canvas = document.querySelector("#drawing-area");
+      const ctx = canvas.getContext("2d");
+
+      let drawing = false;
+      let eraser = false;
+      let brush = false;
+      let rectangle = false;
+      let circle = false;
+      let currentColor = "rgb(0, 0, 0)";
+      let startX, startY;
+
+      ctx.fillStyle = currentColor;
+
+      function eraseOnCanvas(currentX, currentY) {
+        ctx.fillStyle = "rgb(255, 255, 255)";
+        ctx.fillRect(currentX, currentY, 20, 20);
+      }
+
+      function drawOnCanvas(startX, startY, currentX, currentY) {
+        ctx.strokeStyle = currentColor;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+      }
+
+      function drawRectangle(startX, startY, currentX, currentY) {
+        ctx.strokeStyle = currentColor;
+        ctx.beginPath();
+        ctx.rect(startX, startY, currentX - startX, currentY - startY);
+        ctx.stroke();
+      }
+
+      function drawCircle(startX, startY, currentX, currentY) {
+        ctx.strokeStyle = currentColor;
+        ctx.beginPath();
+        const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+        ctx.arc(startX, startY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      function drawBrush(startX, startY, currentX, currentY) {
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+      }
+
+      canvas.addEventListener("mousedown", (e) => {
+        startX = e.offsetX;
+        startY = e.offsetY;
+        drawing = true;
+
+        // Start drawing based on selected tool
+        if (rectangle) {
+          drawRectangle(startX, startY, startX, startY);
+        } else if (circle) {
+          drawCircle(startX, startY, startX, startY);
+        }
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        const currentX = e.offsetX;
+        const currentY = e.offsetY;
+
+        if (drawing) {
+          if (eraser) {
+            eraseOnCanvas(currentX, currentY);
+          } else if (brush) {
+            drawBrush(startX, startY, currentX, currentY);
+            startX = currentX;
+            startY = currentY;
+          } else if (rectangle) {
+            // Update rectangle coordinates only during mouse move
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear previous rectangle
+            drawRectangle(startX, startY, currentX, currentY);
+          } else if (circle) {
+            // Update circle coordinates only during mouse move
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear previous circle
+            drawCircle(startX, startY, currentX, currentY);
+          } else {
+            drawOnCanvas(startX, startY, currentX, currentY);
+            startX = currentX;
+            startY = currentY;
+          }
+        }
+      });
+
+      canvas.addEventListener("mouseup", () => {
+        drawing = false;
+      });
+
+      const toggleEraser = () => {
+        eraser = true;
+        brush = false;
+        rectangle = false;
+        circle = false;
+      };
+
+      const selectPen = () => {
+        eraser = false;
+        brush = false;
+        rectangle = false;
+        circle = false;
+      };
+
+      const selectColor = (color) => {
+        currentColor = color;
+        ctx.fillStyle = color;
+        eraser = false;
+        brush = false;
+        rectangle = false;
+        circle = false;
+      };
+
+      const selectRectangle = () => {
+        rectangle = true;
+        eraser = false;
+        brush = false;
+        circle = false;
+      };
+
+      const selectCircle = () => {
+        circle = true;
+        eraser = false;
+        brush = false;
+        rectangle = false;
+      };
+
+      const selectBrush = () => {
+        brush = true;
+        eraser = false;
+        rectangle = false;
+        circle = false;
+      };
+
+      const clearCanvas = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        eraser = false;
+        brush = false;
+        rectangle = false;
+        circle = false;
+      };
+    </script>
+  </body>
+</html>
