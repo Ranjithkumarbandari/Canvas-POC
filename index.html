@@ -15,28 +15,23 @@
         margin: 0;
         padding: 0;
       }
-
       * {
         box-sizing: border-box;
       }
-
       .canvas-container {
         display: flex;
         flex-direction: column;
         align-items: center;
       }
-
       #drawing-area {
         border: 1px solid black;
         margin: 1rem 0;
       }
-
       .canvas-container__tools {
         display: flex;
         justify-content: center;
         align-items: center;
       }
-
       .tool {
         cursor: pointer;
         border: 1px solid black;
@@ -44,10 +39,10 @@
         font-size: 1.5rem;
         margin: 0 0.5rem;
       }
-      .red{
+      .red {
         background-color: red;
       }
-      .blue{
+      .blue {
         background-color: blue;
       }
     </style>
@@ -56,13 +51,13 @@
     <div class="canvas-container">
       <canvas id="drawing-area" height="500" width="500"></canvas>
       <div class="canvas-container__tools">
-        <div class="tool pencil" onclick="selectPen()">Pencil</div>
-        <div class="tool eraser" onclick="toggleEraser()">Eraser</div>
+        <div class="tool pencil" onclick="selectTool('pencil')">Pencil</div>
+        <div class="tool eraser" onclick="selectTool('eraser')">Eraser</div>
         <div class="tool red" onclick="selectColor('red')">Red</div>
         <div class="tool blue" onclick="selectColor('blue')">Blue</div>
-        <div class="tool rectangle" onclick="selectRectangle()">Rectangle</div>
-        <div class="tool circle" onclick="selectCircle()">Circle</div>
-        <div class="tool brush" onclick="selectBrush()">Brush</div>
+        <div class="tool rectangle" onclick="selectTool('rectangle')">Rectangle</div>
+        <div class="tool circle" onclick="selectTool('circle')">Circle</div>
+        <div class="tool brush" onclick="selectTool('brush')">Brush</div>
         <div class="tool clear" onclick="clearCanvas()">Clear</div>
       </div>
     </div>
@@ -72,18 +67,17 @@
       const ctx = canvas.getContext("2d");
 
       let drawing = false;
-      let eraser = false;
-      let brush = false;
-      let rectangle = false;
-      let circle = false;
-      let currentColor = "rgb(0, 0, 0)";
+      let currentTool = "pencil"; // Default tool
+      let currentColor = "rgb(0, 0, 0)"; // Default black
       let startX, startY;
+      let savedCanvasState = null; // To store canvas state before drawing shapes
 
-      ctx.fillStyle = currentColor;
+      ctx.lineWidth = 1; // Default line width
 
+      // Drawing functions
       function eraseOnCanvas(currentX, currentY) {
         ctx.fillStyle = "rgb(255, 255, 255)";
-        ctx.fillRect(currentX, currentY, 20, 20);
+        ctx.fillRect(currentX - 10, currentY - 10, 20, 20);
       }
 
       function drawOnCanvas(startX, startY, currentX, currentY) {
@@ -118,100 +112,113 @@
         ctx.stroke();
       }
 
+      // Canvas event listeners
       canvas.addEventListener("mousedown", (e) => {
         startX = e.offsetX;
         startY = e.offsetY;
         drawing = true;
 
-        // Start drawing based on selected tool
-        if (rectangle) {
-          drawRectangle(startX, startY, startX, startY);
-        } else if (circle) {
-          drawCircle(startX, startY, startX, startY);
+        // Save the current canvas state before drawing shapes
+        if (currentTool === "rectangle" || currentTool === "circle") {
+          savedCanvasState = ctx.getImageData(0, 0, canvas.width, canvas.height);
         }
       });
 
       canvas.addEventListener("mousemove", (e) => {
+        if (!drawing) return;
+
         const currentX = e.offsetX;
         const currentY = e.offsetY;
 
-        if (drawing) {
-          if (eraser) {
-            eraseOnCanvas(currentX, currentY);
-          } else if (brush) {
-            drawBrush(startX, startY, currentX, currentY);
-            startX = currentX;
-            startY = currentY;
-          } else if (rectangle) {
-            // Update rectangle coordinates only during mouse move
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear previous rectangle
-            drawRectangle(startX, startY, currentX, currentY);
-          } else if (circle) {
-            // Update circle coordinates only during mouse move
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear previous circle
-            drawCircle(startX, startY, currentX, currentY);
-          } else {
-            drawOnCanvas(startX, startY, currentX, currentY);
-            startX = currentX;
-            startY = currentY;
-          }
+        if (currentTool === "eraser") {
+          eraseOnCanvas(currentX, currentY);
+          saveCanvasState();
+        } else if (currentTool === "pencil") {
+          drawOnCanvas(startX, startY, currentX, currentY);
+          startX = currentX;
+          startY = currentY;
+          saveCanvasState();
+        } else if (currentTool === "brush") {
+          drawBrush(startX, startY, currentX, currentY);
+          startX = currentX;
+          startY = currentY;
+          saveCanvasState();
         }
       });
 
-      canvas.addEventListener("mouseup", () => {
+      canvas.addEventListener("mouseup", (e) => {
+        if (!drawing) return;
+
+        const currentX = e.offsetX;
+        const currentY = e.offsetY;
+
+        if (currentTool === "rectangle") {
+          ctx.putImageData(savedCanvasState, 0, 0); // Restore previous state
+          drawRectangle(startX, startY, currentX, currentY);
+          saveCanvasState();
+        } else if (currentTool === "circle") {
+          ctx.putImageData(savedCanvasState, 0, 0); // Restore previous state
+          drawCircle(startX, startY, currentX, currentY);
+          saveCanvasState();
+        }
+
         drawing = false;
       });
 
-      const toggleEraser = () => {
-        eraser = true;
-        brush = false;
-        rectangle = false;
-        circle = false;
-      };
+      // Tool selection
+      function selectTool(tool) {
+        currentTool = tool;
+        ctx.lineWidth = (tool === "brush") ? 5 : 1; // Thicker line for brush
+      }
 
-      const selectPen = () => {
-        eraser = false;
-        brush = false;
-        rectangle = false;
-        circle = false;
-      };
-
-      const selectColor = (color) => {
+      function selectColor(color) {
         currentColor = color;
-        ctx.fillStyle = color;
-        eraser = false;
-        brush = false;
-        rectangle = false;
-        circle = false;
-      };
+        ctx.strokeStyle = color;
+      }
 
-      const selectRectangle = () => {
-        rectangle = true;
-        eraser = false;
-        brush = false;
-        circle = false;
-      };
-
-      const selectCircle = () => {
-        circle = true;
-        eraser = false;
-        brush = false;
-        rectangle = false;
-      };
-
-      const selectBrush = () => {
-        brush = true;
-        eraser = false;
-        rectangle = false;
-        circle = false;
-      };
-
-      const clearCanvas = () => {
+      function clearCanvas() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        eraser = false;
-        brush = false;
-        rectangle = false;
-        circle = false;
+        saveCanvasState(); // Save cleared state
+      }
+
+      // LocalStorage with expiration
+      function saveCanvasState() {
+        const canvasData = canvas.toDataURL();
+        const timestamp = Date.now();
+        const expirationTime = 2 * 60 * 1000; // 5 minutes in milliseconds
+
+        const data = {
+          canvasData: canvasData,
+          timestamp: timestamp,
+          expiresIn: expirationTime
+        };
+
+        localStorage.setItem("canvasState", JSON.stringify(data));
+      }
+
+      function loadCanvasState() {
+        const storedData = localStorage.getItem("canvasState");
+        if (storedData) {
+          const data = JSON.parse(storedData);
+          const currentTime = Date.now();
+
+          // Check if the data has expired
+          if (currentTime - data.timestamp > data.expiresIn) {
+            localStorage.removeItem("canvasState"); // Remove expired data
+            return;
+          }
+
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0);
+          };
+          img.src = data.canvasData;
+        }
+      }
+
+      // Load canvas state on page load
+      window.onload = () => {
+        loadCanvasState();
       };
     </script>
   </body>
